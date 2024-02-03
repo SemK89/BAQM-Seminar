@@ -1,4 +1,3 @@
-import numpy as np
 import pandas as pd
 from sklearn.preprocessing import LabelEncoder
 
@@ -38,12 +37,6 @@ def data_modification(df):
     df['product_label'] = label_encoder.fit_transform(df['product'])
     df['sales_channel_label'] = label_encoder.fit_transform(df['sales_channel'])
     df['policy_nr_hashed_label'] = label_encoder.fit_transform(df['policy_nr_hashed'])
-
-    # Some of the postcode values are between quotations (e.g. 2045 is written as '2045').
-    # We want to remove this so 2045 and '2045' are treated as the same postcode.
-    df['postcode'] = df['postcode'].str.replace(" ' ", '')
-
-    # Label encode postcode as well
     df['postcode_label'] = label_encoder.fit_transform(df['postcode'])
 
     # Change NaN values of year-end policy to zero.
@@ -56,20 +49,40 @@ def data_modification(df):
 
 
 def drop_older_policies(df, year):
-    return df[df['year_initiation_policy'] >= year]
-
-
-def remove_vars(df, col_names):
-    for col_name in col_names:
-        df = df.drop(col_name, axis=1)
-    return df
+    return (df[df['year_initiation_policy'] >= year]
+            .sort_values(by=['year_initiation_policy', 'policy_nr_hashed', 'year_initiation_policy_version']))
 
 
 def sum_cols(df, cols_to_sum, new_col_name):
-    new_col = np.zeros((len(df), 1))
-    for col in cols_to_sum:
-        new_col = new_col + df[col]
+    df[new_col_name] = df[cols_to_sum].sum(axis=1, min_count=1).fillna(0)
+    df.drop(cols_to_sum, axis=1, inplace=True)
+    return df
 
-    df[new_col_name] = new_col
-    remove_vars(df, cols_to_sum)
+
+def minor_edits(df):
+    df.drop_duplicates()
+    # Some of the postcode values are between quotations (e.g. 2045 is written as '2045').
+    # We want to remove this so 2045 and '2045' are treated as the same postcode.
+    df['postcode'] = df['postcode'].str.replace(" ' ", '')
+
+    # Make d_churn=1 for a few cases where it is zero even though the year_end_policy clearly states they churn
+    df.loc[df['year_initiation_policy_version'] == df['year_end_policy'], 'd_churn'] = 1
+
+    # WD set to 1 if it is not the first year of the policy
+    df.loc[df['years_since_policy_started'] != 0, 'welcome_discount'] = 1
+
+    # Reduce accident-free years by 5 if it is mentioned in the mutation, changeNcbmData
+    # rows added by Luca have nan values for premium_main_coverage and premium_supplementary_coverage
+    df.loc[(df['premium_main_coverage'].isnull()) and
+           ((df['mutation_1'] == 'changeNcbmData') or (df['mutation_2'] == 'changeNcbmData') or
+            (df['mutation_3'] == 'changeNcbmData') or (df['mutation_4'] == 'changeNcbmData') or
+            (df['mutation_5'] == 'changeNcbmData') or (df['mutation_6'] == 'changeNcbmData') or
+            (df['mutation_7'] == 'changeNcbmData') or (df['mutation_8'] == 'changeNcbmData') or
+            (df['mutation_9'] == 'changeNcbmData') or (df['mutation_10'] == 'changeNcbmData') or
+            (df['mutation_11'] == 'changeNcbmData') or
+            (df['mutation_12'] == 'changeNcbmData')), 'accident_free_years'] -= 5
+
+    # drop rows with churn in 2019 but 0 premium
+    df = df[not ((df['total_premium'] == 0) and (df['d_churn'] == 1) and (df['year_policy_version'] == 2019))]
+
     return df
