@@ -1,4 +1,5 @@
-
 *.csv
 *.pyc
 .DS_Store
+.Rhistory
+20240117_churn_data.csv
