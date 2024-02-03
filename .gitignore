@@ -2,3 +2,4 @@
 .Rhistory
 .DS_Store
 20240117_churn_data.csv
+*.pyc
