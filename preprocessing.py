@@ -59,8 +59,26 @@ def sum_cols(df, cols_to_sum, new_col_name):
     return df
 
 
+def add_treatment_vars(df):
+    df['WD_eligible'] = 1
+    df.loc[df['welcome_discount_control_group'].str.contains('no WD'), 'WD_eligible'] = 0
+    df['LPA_eligible'] = 1
+    df.loc[df['welcome_discount_control_group'].str.contains('no LPA'), 'LPA_eligible'] = 0
+
+    df_cs = df.copy().groupby('policy_nr_hashed')['welcome_discount'].min()
+    df_cs.rename({'welcome_discount': 'WD_level'})
+    df.merge(df_cs, how='left', on='policy_nr_hashed')
+
+    df['WD_received'] = 0
+    df.loc[df['WD_level'] < 1, 'WD_received'] = 1
+
+    return df
+
+
 def minor_edits(df):
+    # Apparently some rows are exactly identical, Luca said it was safe to drop these
     df.drop_duplicates()
+
     # Some of the postcode values are between quotations (e.g. 2045 is written as '2045').
     # We want to remove this so 2045 and '2045' are treated as the same postcode.
     df['postcode'] = df['postcode'].str.replace(" ' ", '')
@@ -72,17 +90,17 @@ def minor_edits(df):
     df.loc[df['years_since_policy_started'] != 0, 'welcome_discount'] = 1
 
     # Reduce accident-free years by 5 if it is mentioned in the mutation, changeNcbmData
-    # rows added by Luca have nan values for premium_main_coverage and premium_supplementary_coverage
-    df.loc[(df['premium_main_coverage'].isnull()) and
-           ((df['mutation_1'] == 'changeNcbmData') or (df['mutation_2'] == 'changeNcbmData') or
-            (df['mutation_3'] == 'changeNcbmData') or (df['mutation_4'] == 'changeNcbmData') or
-            (df['mutation_5'] == 'changeNcbmData') or (df['mutation_6'] == 'changeNcbmData') or
-            (df['mutation_7'] == 'changeNcbmData') or (df['mutation_8'] == 'changeNcbmData') or
-            (df['mutation_9'] == 'changeNcbmData') or (df['mutation_10'] == 'changeNcbmData') or
-            (df['mutation_11'] == 'changeNcbmData') or
-            (df['mutation_12'] == 'changeNcbmData')), 'accident_free_years'] -= 5
+    # rows added by Luca have nan values for premium_main_coverages and premium_supplementary_coverages
+    df.loc[((df['premium_main_coverages'].isnull()) &
+           ((df['mutation_1'] == 'changeNcbmData') | (df['mutation_2'] == 'changeNcbmData') |
+            (df['mutation_3'] == 'changeNcbmData') | (df['mutation_4'] == 'changeNcbmData') |
+            (df['mutation_5'] == 'changeNcbmData') | (df['mutation_6'] == 'changeNcbmData') |
+            (df['mutation_7'] == 'changeNcbmData') | (df['mutation_8'] == 'changeNcbmData') |
+            (df['mutation_9'] == 'changeNcbmData') | (df['mutation_10'] == 'changeNcbmData') |
+            (df['mutation_11'] == 'changeNcbmData') |
+            (df['mutation_12'] == 'changeNcbmData'))), 'accident_free_years'] -= 5
 
     # drop rows with churn in 2019 but 0 premium
-    df = df[not ((df['total_premium'] == 0) and (df['d_churn'] == 1) and (df['year_policy_version'] == 2019))]
+    df = df[~((df['total_premium'] == 0) & (df['d_churn'] == 1) & (df['year_initiation_policy_version'] == 2019))]
 
     return df
