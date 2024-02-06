@@ -18,5 +18,6 @@ data = prep.sum_cols(data, [
     "premium_change_mutation_9", "premium_change_mutation_10",
     "premium_change_mutation_11", "premium_change_mutation_12"], 'premium_mutations')
 
+data = prep.add_treatment_vars(data)
 
 print(data.describe())
