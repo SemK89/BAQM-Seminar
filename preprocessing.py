@@ -104,3 +104,29 @@ def minor_edits(df):
     df = df[~((df['total_premium'] == 0) & (df['d_churn'] == 1) & (df['year_initiation_policy_version'] == 2019))]
 
     return df
+
+
+def convert_person_period(df):
+    df = df.copy()
+    df = df[~((df["years_since_policy_started"] == 0)&(df["d_churn"] == 0))]
+    df.loc[(df["years_since_policy_started"] == 0) & (df["d_churn"] == 1), "years_since_policy_started"] = 1
+    
+    # get the yearly start year
+    df.loc[:, "end_year"] = df["years_since_policy_started"] + df["year_initiation_policy"]
+    df.loc[:, "star_year"] = df["end_year"] - 1
+
+    
+    df_person_period = df.drop(['year_initiation_policy', 'year_initiation_policy_version', 'year_end_policy','d_churn_cancellation',
+       'd_churn_between_prolongations', 'd_churn_around_prolongation', 'premium_main_coverages', 'premium_supplementary_coverages', 'welcome_discount_control_group'
+       , 'postcode','premium_mutations'], axis = 1)
+    
+    # Convert multiple categorical columns into dummy variables
+    df_dummies = pd.get_dummies(df_person_period[['brand', 'fuel_type']], prefix=['brand', 'fuel_type'])
+
+    # Concatenate the dummy variables with the original DataFrame and drop the original categorical columns
+    df_person_period = pd.concat([df_person_period, df_dummies], axis=1).drop(['brand', 'fuel_type'], axis=1)
+    
+    bool_columns = df_person_period.select_dtypes(include='bool').columns
+    df_person_period[bool_columns] = df_person_period[bool_columns].astype(int)
+
+    return df_person_period
