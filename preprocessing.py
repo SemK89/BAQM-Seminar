@@ -118,14 +118,18 @@ def convert_person_period(df):
     
     df_person_period = df.drop(['year_initiation_policy', 'year_initiation_policy_version', 'year_end_policy','d_churn_cancellation',
        'd_churn_between_prolongations', 'd_churn_around_prolongation', 'premium_main_coverages', 'premium_supplementary_coverages', 'welcome_discount_control_group'
-       , 'postcode','premium_mutations'], axis = 1)
+       , 'postcode','premium_mutations','type','weight'], axis = 1)
     
-    # Convert multiple categorical columns into dummy variables
-    df_dummies = pd.get_dummies(df_person_period[['brand', 'fuel_type']], prefix=['brand', 'fuel_type'])
+    df_person_period['years_since_policy_started'] = df_person_period['years_since_policy_started'].astype('category')
+    # Get dummies without specifying prefix
+    df_dummies = pd.get_dummies(df_person_period[['brand', 'fuel_type','years_since_policy_started']])
 
-    # Concatenate the dummy variables with the original DataFrame and drop the original categorical columns
-    df_person_period = pd.concat([df_person_period, df_dummies], axis=1).drop(['brand', 'fuel_type'], axis=1)
-    
+    # Concatenate the dummy variables with the original DataFrame
+    df_person_period = pd.concat([df_person_period, df_dummies], axis=1)
+
+    # Drop the original categorical columns
+    df_person_period = df_person_period.drop(['brand', 'fuel_type','years_since_policy_started'], axis=1)
+
     bool_columns = df_person_period.select_dtypes(include='bool').columns
     df_person_period[bool_columns] = df_person_period[bool_columns].astype(int)
 
