@@ -33,11 +33,11 @@ start_time = time.time()
 # Create DBSCAN object and fit the data
 # eps is the maximum distance between two samples for one to be considered as in the neighborhood of the other
 # min_samples is the number of samples in a neighborhood for a point to be considered as a core point
-dbscan_1 = DBSCAN(eps=3, min_samples=10)  
+dbscan_1 = DBSCAN(eps=2, min_samples=1000)  
 dbscan_1.fit(df_scaled_reduced)
 
 # ANother fit with different epsilon
-dbscan_2 = DBSCAN(eps=4, min_samples=10)  
+dbscan_2 = DBSCAN(eps=2.5, min_samples=1000)  
 dbscan_2.fit(df_scaled_reduced)
 
 end_time = time.time()
