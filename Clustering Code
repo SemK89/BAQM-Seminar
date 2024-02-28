@@ -1,0 +1,110 @@
+# Select certain variables of the dataframe for the clustering process
+# Welscome_discount not used since we might want to use this later for comparing discount rates
+# same goes for welcome_discount_control_group_label
+df_cluster = df[["years_since_policy_started","year_initiation_policy","year_initiation_policy_version",
+                 "premium_main_coverages","premium_supplementary_coverages","total_premium","customer_age",
+                 "accident_free_years","car_value","age_car","weight","allrisk basis","allrisk compleet","allrisk royaal",
+                 "wa-extra","wettelijke aansprakelijkheid","n_main_coverages","n_supplementary_coverages","n_coverages", 
+                 "brand_label", "type_label", "fuel_type_label", "product_label", 
+                 "sales_channel_label", "policy_nr_hashed_label", "postcode_label"]]
+
+# Drop certain variables, not relavant for clustering/ or hurt the clustering
+df_cluster = df_cluster.drop(["year_initiation_policy","year_initiation_policy_version"], axis = 1, inplace = False)
+
+# Extra cluster variables selection
+df_cluster_2 = df[["premium_main_coverages","premium_supplementary_coverages","total_premium","customer_age",
+                 "accident_free_years","car_value","age_car","brand_label", "type_label", "product_label", 
+                 "sales_channel_label", "policy_nr_hashed_label"]]
+
+################################################################################################################################
+################################################################################################################################
+# DBSCAN Clustering
+
+# test on smaller dataset
+# df_cluster_reduced = df_cluster.sample(n=200000 , random_state=42)
+df_cluster_reduced = df_cluster
+
+# Standardize
+scaler = StandardScaler()
+df_scaled_reduced = scaler.fit_transform(df_cluster_reduced)
+
+start_time = time.time()
+
+# Create DBSCAN object and fit the data
+# eps is the maximum distance between two samples for one to be considered as in the neighborhood of the other
+# min_samples is the number of samples in a neighborhood for a point to be considered as a core point
+dbscan_1 = DBSCAN(eps=3, min_samples=10)  
+dbscan_1.fit(df_scaled_reduced)
+
+# ANother fit with different epsilon
+dbscan_2 = DBSCAN(eps=4, min_samples=10)  
+dbscan_2.fit(df_scaled_reduced)
+
+end_time = time.time()
+
+# Add cluster labels to the original DataFrame
+df['cluster_dbscan_1'] = dbscan_1.labels_
+df['cluster_dbscan_2'] = dbscan_2.labels_
+
+print(f"Excecution time: {end_time - start_time} seconds" )
+
+
+################################################################################################################################
+################################################################################################################################
+# K-prototypes Clustering
+
+# Specify the categorical columns
+categorical_columns = ['allrisk basis', 'allrisk compleet', 'allrisk royaal', 'wa-extra',
+                     'wettelijke aansprakelijkheid', 'n_main_coverages', 'n_supplementary_coverages', 'n_coverages',
+                     'brand_label', 'type_label', 'fuel_type_label',
+                     'product_label', 'sales_channel_label', 'policy_nr_hashed_label', "postcode_label"]
+
+# Start timer to check computing time
+start_time = time.time()
+
+# Standardize the numerical data
+numerical_columns = df_cluster.columns.difference(categorical_columns)
+scaler = StandardScaler()
+df_scaled_numerical = scaler.fit_transform(df_cluster[numerical_columns])
+
+# Convert back to DataFrame
+df_scaled_numerical_df = pd.DataFrame(df_scaled_numerical, columns=numerical_columns)
+
+# Select categorical values
+df_cluster_cat = df_cluster[categorical_columns]
+
+# Reset indices of both DataFrames
+df_scaled_numerical_df.reset_index(drop=True, inplace=True)
+df_cluster_cat.reset_index(drop=True, inplace=True)
+
+# Combine the scaled numerical data with the original categorical data along columns
+df_scaled = pd.concat([df_scaled_numerical_df, df_cluster_cat], axis=1)
+
+# i relates to the amount of segments
+for i in [2,3,4,5,6]:
+
+    # Specify the number of clusters (you need to decide this based on your problem)
+    num_clusters = i
+
+    # Create KPrototypes object and fit the data
+    kproto = KPrototypes(n_clusters=num_clusters, init='Cao', verbose=2, max_iter=10)
+    clusters = kproto.fit_predict(df_scaled, categorical=list(range(len(numerical_columns), len(df_scaled.columns))))
+
+    # End timer
+    end_time = time.time()
+
+    # Check computing time
+    print(f"Excecution time: {end_time - start_time} seconds" )
+    # Add cluster labels to the original DataFrame
+    df[f'cluster_k_prototypes_{i}'] = clusters
+
+################################################################################################################################
+################################################################################################################################    
+# Save the new DataFrame as a CSV file
+df.to_csv("Aegon_data_with_clusters_2018", index=False)
+
+# Save a file for the clusters only
+clusters_df = df[["cluster_k_prototypes_2","cluster_k_prototypes_3","cluster_k_prototypes_4", 
+                  "cluster_k_prototypes_5","cluster_k_prototypes_6","cluster_k_prototypes_7",
+                  "cluster_dbscan_1", "cluster_dbscan_2"]]
+clusters_df.to_csv("Aegon_data_only_clusters_2018", index=False)
