@@ -26,13 +26,14 @@ data.drop(["d_churn_cancellation", "d_churn_between_prolongations", "d_churn_aro
            "premium_main_coverages", "premium_supplementary_coverages", "total_premium", "premium_mutations",
            "brand", "type", "weight", "fuel_type", "wettelijke aansprakelijkheid", "n_main_coverages", "n_coverages"],
           axis=1, inplace=True)
-data = prep.shorten_postal_code(data, 2)  # SLOW, takes about a minute, comment out when debugging
 
 clustering = pd.read_csv('Aegon_data_only_clusters_2021_with_id',
                          usecols=["policy_nr_hashed", "cluster_k_prototypes_4"])
 data = data.merge(clustering, how='left', on='policy_nr_hashed')
-data['cluster_k_prototypes_4'] = data['cluster_k_prototypes_4'].fillna(4).astype(int)
+data['cluster_k_prototypes_4'] = data['cluster_k_prototypes_4'].fillna(-1).astype(int) + 1
 
+data = prep.shorten_postal_code(data, 2)  # SLOW, takes about a minute, comment out when debugging
 data.rename(columns={'postcode': 'post2', 'cluster_k_prototypes_4': 'cluster'}, inplace=True)
 
 print(data.describe())
+data.to_csv('churn_data_cleaned_causal.csv', index=False)
