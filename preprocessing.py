@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 from sklearn.preprocessing import LabelEncoder
 
 dataset = pd.read_csv('20240117_churn_data.csv')
@@ -50,7 +51,7 @@ def data_modification(df):
 
 def drop_older_policies(df, year):
     return (df[df['year_initiation_policy'] >= year]
-            .sort_values(by=['year_initiation_policy', 'policy_nr_hashed', 'year_initiation_policy_version']))
+            .sort_values(by=['policy_nr_hashed', 'year_initiation_policy_version']))
 
 
 def sum_cols(df, cols_to_sum, new_col_name):
@@ -64,10 +65,10 @@ def add_treatment_vars(df):
     df.loc[df['welcome_discount_control_group'].str.contains('no WD'), 'WD_eligible'] = 0
     df['LPA_eligible'] = 1
     df.loc[df['welcome_discount_control_group'].str.contains('no LPA'), 'LPA_eligible'] = 0
+    df['eligibility_cat'] = (df['WD_eligible'] + 2*df['LPA_eligible']).astype(int)
 
-    df_cs = df.copy().groupby('policy_nr_hashed')['welcome_discount'].min()
-    df_cs.rename({'welcome_discount': 'WD_level'})
-    df.merge(df_cs, how='left', on='policy_nr_hashed')
+    df_cs = df.groupby('policy_nr_hashed').agg(WD_level=('welcome_discount', 'min'))
+    df = df.merge(df_cs, how='left', on='policy_nr_hashed')
 
     df['WD_received'] = 0
     df.loc[df['WD_level'] < 1, 'WD_received'] = 1
@@ -75,13 +76,31 @@ def add_treatment_vars(df):
     return df
 
 
+def shorten_postal_code(df, digits):
+    for i in range(len(df['postcode'])):
+        code = df.iloc[i, 10]
+        try:
+            df.iloc[i, 10] = float(code) // (10**(4-digits))
+        except ValueError:
+            df.iloc[i, 10] = 0
+
+    df['postcode'].astype(int)
+    return df
+
+
 def minor_edits(df):
     # Apparently some rows are exactly identical, Luca said it was safe to drop these
-    df.drop_duplicates()
+    df = df.drop_duplicates(subset=['policy_nr_hashed', 'years_since_policy_started'], keep='last')
+
+    # Recompute time periods as some seem to contain errors
+    df['years_since_policy_started'] = (df['year_initiation_policy_version'] - df['year_initiation_policy']).astype(int)
+
+    # Removes just over 200 datapoints that ended their policy in 2018 but still show up as a 2019 policy.
+    df = df[df['year_end_policy'] != 2018]
 
     # Some of the postcode values are between quotations (e.g. 2045 is written as '2045').
     # We want to remove this so 2045 and '2045' are treated as the same postcode.
-    df['postcode'] = df['postcode'].str.replace(" ' ", '')
+    # df['postcode'] = df['postcode'].str.replace("'", '')
 
     # Make d_churn=1 for a few cases where it is zero even though the year_end_policy clearly states they churn
     df.loc[df['year_initiation_policy_version'] == df['year_end_policy'], 'd_churn'] = 1
