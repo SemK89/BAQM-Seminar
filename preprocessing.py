@@ -69,7 +69,7 @@ def add_treatment_vars(df):
     df.loc[df['welcome_discount_control_group'].str.contains('no WD'), 'WD_eligible'] = 0
     df['LPA_eligible'] = 1
     df.loc[df['welcome_discount_control_group'].str.contains('no LPA'), 'LPA_eligible'] = 0
-    df['eligibility_cat'] = (df['WD_eligible'] + 2*df['LPA_eligible']).astype('category')
+    df['eligibility_cat'] = (1 + df['WD_eligible'] + 2*df['LPA_eligible']).astype(int)
 
     df_cs = df.groupby('policy_nr_hashed').agg(WD_level=('welcome_discount', 'min'))
     df = df.merge(df_cs, how='left', on='policy_nr_hashed')
