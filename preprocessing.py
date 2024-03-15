@@ -38,6 +38,13 @@ def data_modification(df):
     df['product_label'] = label_encoder.fit_transform(df['product'])
     df['sales_channel_label'] = label_encoder.fit_transform(df['sales_channel'])
     df['policy_nr_hashed_label'] = label_encoder.fit_transform(df['policy_nr_hashed'])
+    
+    # Convert all elements to strings
+    df['postcode'] = df['postcode'].astype(str)
+
+    # Remove quotations if present
+    df['postcode'] = df['postcode'].str.replace("'", "")
+    
     df['postcode_label'] = label_encoder.fit_transform(df['postcode'])
 
     # Change NaN values of year-end policy to zero.
