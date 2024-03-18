@@ -102,8 +102,8 @@ def minor_edits(df):
     # Apparently some rows are exactly identical, Luca said it was safe to drop these
     df = df.drop_duplicates(subset=['policy_nr_hashed', 'years_since_policy_started'], keep='last')
 
-    # Recompute time periods as some seem to contain errors
-    df['years_since_policy_started'] = (df['year_initiation_policy_version'] - df['year_initiation_policy']).astype(int)
+    # Recompute time periods as some seem to contain errors, and make them start as period 1 instead of 0.
+    df['years_since_policy_started'] = (df['year_initiation_policy_version'] - df['year_initiation_policy'] + 1).astype(int)
     df['year_initiation_policy_version'] = df['year_initiation_policy_version'].astype(int)
 
     # Removes just over 200 datapoints that ended their policy in 2018 but still show up as a 2019 policy.
@@ -118,7 +118,7 @@ def minor_edits(df):
     df.loc[df['year_initiation_policy_version'] == df['year_end_policy'], 'd_churn'] = 1
 
     # WD set to 1 if it is not the first year of the policy
-    df.loc[df['years_since_policy_started'] != 0, 'welcome_discount'] = 1
+    df.loc[df['years_since_policy_started'] != 1, 'welcome_discount'] = 1
 
     # Reduce accident-free years by 5 if it is mentioned in the mutation, changeNcbmData
     # rows added by Luca have nan values for premium_main_coverages and premium_supplementary_coverages

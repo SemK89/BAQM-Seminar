@@ -3,3 +3,8 @@
 .DS_Store
 .Rhistory
 20240117_churn_data.csv
+.idea/csv-editor.xml
+*.o
+.idea/csv-editor.xml
+*.xml
+*.xml
