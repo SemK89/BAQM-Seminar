@@ -5,12 +5,11 @@ import numpy as np
 import stan  # ensure cython and numpy are installed, as well as a gcc compiler using homebrew
 from sklearn.metrics import roc_auc_score
 import preprocessing as prep  # own class
+
 multiprocessing.set_start_method("fork")
 pd.options.mode.chained_assignment = None
 f = open("Bayes_output.txt", 'w')
 sys.stdout = f
-
-
 seed = sum([ord(letter) for i, letter in enumerate('Herstad')])
 np.random.seed(seed)
 
@@ -121,13 +120,13 @@ def output_results(fit, vals_to_fit, data_label, give_draws=False):
     results = fit.to_frame()
 
     if give_draws:
-        # param_draws = results.loc[:, f'alpha{"" if max(vals_to_fit["years_since_policy_started"]) == 1 else ".1"}':f'gamma_5{"" if max(vals_to_fit["years_since_policy_started"]) == 1 else "."+str(max(vals_to_fit["years_since_policy_started"]))}']
-        # param_draws.to_csv(f'param_draws_{data_label}.csv')
+        param_draws = results.loc[:, f'alpha{"" if max(vals_to_fit["years_since_policy_started"]) == 1 else ".1"}':f'gamma_5{"" if max(vals_to_fit["years_since_policy_started"]) == 1 else "."+str(max(vals_to_fit["years_since_policy_started"]))}']
+        param_draws.to_csv(f'param_draws_{data_label}.csv')
 
         fit_phi_agg = np.array(results.loc[:, 'phi_sim.1':f'phi_sim.{len(vals_to_fit["d_churn"])}'].mean(axis=0))
         vals_to_fit['pred_treat_eff'] = fit_phi_agg
         phi_table_cat = pd.pivot_table(vals_to_fit, index='years_since_policy_started', columns='eligibility_cat',
-                                           values='pred_treat_eff', aggfunc=[np.mean, np.std])
+                                       values='pred_treat_eff', aggfunc=[np.mean, np.std])
         phi_table_cat.to_csv(f'treat_eff_{data_label}.csv')
 
     fit_p_agg = np.array(results.loc[:, 'p_sim.1':f'p_sim.{len(vals_to_fit["d_churn"])}'].mean(axis=0))
@@ -527,13 +526,11 @@ generated quantities {
 }
 """
 
-# Splitting data
-# data = data.sample(n=10000, axis=0, random_state=seed)  # reduce runtime in debugging/development, remove later!
+# Splitting data for different models
 data1 = data.loc[data['cluster'] == 1, :]
 data2 = data.loc[data['cluster'] == 2, :]
 data_in = data.loc[data['tt_split'] == 0, :]
 data_out = data.loc[data['tt_split'] == 1, :]
-
 data_eval_t1 = data.loc[(data['year_initiation_policy_version'] < 2023) &
                         (data['years_since_policy_started'] <= 1), :]
 data_eval_t2 = data.loc[(data['year_initiation_policy_version'] < 2023) &
@@ -543,6 +540,7 @@ data_pred_t1 = data.loc[(data['year_initiation_policy_version'] == 2023) &
 data_pred_t2 = data.loc[(data['year_initiation_policy_version'] == 2023) &
                         (data['years_since_policy_started'] == 2), :]
 
+# Generating data dictionaries to be understood by STAN
 full = bayes_data(data, data)
 cluster1 = bayes_data(data1, data1)
 cluster2 = bayes_data(data2, data2)
@@ -550,10 +548,12 @@ predictive_tt = bayes_data(data_in, data_out)
 predictive_t1 = bayes_data(data_eval_t1, data_pred_t1)
 predictive_t2 = bayes_data(data_eval_t2, data_pred_t2)
 
+
+# Setting parameters of HMC
 hyperparams = {'num_warmup': 250, 'num_samples': 750, 'num_chains': 16,
                'delta': 0.8, 'stepsize_jitter': 0.1, 'refresh': 250}
 
-
+# Run models and store core outputs in csv and txt files
 print('Full model (in-sample), weak priors:')
 logit_weak_full = stan.build(general_model_weak, full, random_seed=seed)
 fit_weak_full = logit_weak_full.sample(**hyperparams)

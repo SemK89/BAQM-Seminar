@@ -12,23 +12,18 @@ churn_probs0 = churn_probs.loc[churn_probs['years_since_policy_started'] == 1, :
 churn_probs1 = churn_probs.loc[churn_probs['years_since_policy_started'] == 2, :]
 churn_probs2 = churn_probs.loc[churn_probs['years_since_policy_started'] == 3, :]
 
-plt.xlim=([0, 1])
-sns.kdeplot(data=churn_probs, x='pred_p_churn', hue='eligibility_cat',
-            cut=0, fill=True, alpha=0.3, common_norm=False, palette='colorblind')
+p1 = sns.kdeplot(data=churn_probs0, x='pred_p_churn', hue='eligibility_cat',
+                 cut=3, bw_adjust=2, fill=True, alpha=0.3, common_norm=False, palette='colorblind')
+p1.set_xlim(0, 0.8)
 plt.show()
-sns.kdeplot(data=churn_probs0, x='pred_p_churn', hue='eligibility_cat',
-            cut=0, fill=True, alpha=0.3, common_norm=False, palette='colorblind')
-plt.show()
-sns.kdeplot(data=churn_probs1, x='pred_p_churn', hue='eligibility_cat',
-            cut=0, fill=True, alpha=0.3, common_norm=False, palette='colorblind')
-plt.show()
-sns.kdeplot(data=churn_probs2, x='pred_p_churn', hue='eligibility_cat',
-            cut=0, fill=True, alpha=0.3, common_norm=False, palette='colorblind')
 
+p2 = sns.kdeplot(data=churn_probs1, x='pred_p_churn', hue='eligibility_cat',
+                 cut=3, bw_adjust=2, fill=True, alpha=0.3, common_norm=False, palette='colorblind')
+p2.set_xlim(0, 0.8)
 plt.show()
 
 
 param_draws = pd.read_csv('param_draws_weak_full.csv')
 for param in param_draws:
-    sns.kdeplot(data=param_draws, x=param)
+    sns.kdeplot(data=param_draws, x=param, cut=2, bw_adjust=3)
     plt.show()
