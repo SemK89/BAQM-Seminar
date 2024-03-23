@@ -4,6 +4,8 @@ import pandas as pd
 import numpy as np
 import stan  # ensure cython and numpy are installed, as well as a gcc compiler using homebrew
 from sklearn.metrics import roc_auc_score
+import matplotlib.pyplot as plt
+import seaborn as sns
 import preprocessing as prep  # own class
 
 multiprocessing.set_start_method("fork")
@@ -590,3 +592,28 @@ fit_weak_predictive_t2 = logit_weak_predictive_t2.sample(**hyperparams)
 output_results(fit_weak_predictive_t2, data_pred_t2, 't2')
 
 f.close()
+
+
+# Plotting
+plt_data = pd.read_csv('output_data_weak_full.csv')
+churn_probs = plt_data.loc[:, ['years_since_policy_started', 'eligibility_cat', 'pred_p_churn']]
+churn_probs['eligibility_cat'] = churn_probs['eligibility_cat'] - 1
+churn_probs0 = churn_probs.loc[churn_probs['years_since_policy_started'] == 1, :]
+churn_probs1 = churn_probs.loc[churn_probs['years_since_policy_started'] == 2, :]
+churn_probs2 = churn_probs.loc[churn_probs['years_since_policy_started'] == 3, :]
+
+sns.set_theme(style="whitegrid")
+p1 = sns.kdeplot(data=churn_probs0, x='pred_p_churn', hue='eligibility_cat',
+                 cut=3, bw_adjust=2, fill=True, alpha=0.3, common_norm=False, palette='colorblind')
+p1.set_xlim(0, 0.8)
+plt.show()
+
+p2 = sns.kdeplot(data=churn_probs1, x='pred_p_churn', hue='eligibility_cat',
+                 cut=3, bw_adjust=2, fill=True, alpha=0.3, common_norm=False, palette='colorblind')
+p2.set_xlim(0, 0.8)
+plt.show()
+
+param_draws = pd.read_csv('param_draws_weak_full.csv')
+for param in param_draws:
+    sns.kdeplot(data=param_draws, x=param, cut=2, bw_adjust=3)
+    plt.show()
