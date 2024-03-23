@@ -168,7 +168,6 @@ def minor_edits_for_survival(df):
 
     # drop rows with churn in 2019 but 0 premium
     df = df[~((df['total_premium'] == 0) & (df['d_churn'] == 1) & (df['year_initiation_policy_version'] == 2019))]
-    # I was not sure why only 2019
 
     return df
 
