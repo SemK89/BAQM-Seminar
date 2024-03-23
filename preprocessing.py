@@ -137,31 +137,82 @@ def minor_edits(df):
     return df
 
 
-def convert_person_period(df):
+# this is used in the survival analysis, the orginal version
+def minor_edits_for_survival(df):
+    # Apparently some rows are exactly identical, Luca said it was safe to drop these
+    df.drop_duplicates()
+
+    # Some of the postcode values are between quotations (e.g. 2045 is written as '2045').
+    # We want to remove this so 2045 and '2045' are treated as the same postcode.
+    df['postcode'] = df['postcode'].astype(str)
+
+    # Remove quotations if present
+    df['postcode'] = df['postcode'].str.replace("'", "")
+
+    # Make d_churn=1 for a few cases where it is zero even though the year_end_policy clearly states they churn
+    df.loc[df['year_initiation_policy_version'] == df['year_end_policy'], 'd_churn'] = 1
+
+    # WD set to 1 if it is not the first year of the policy
+    df.loc[df['years_since_policy_started'] != 0, 'welcome_discount'] = 1
+
+    # Reduce accident-free years by 5 if it is mentioned in the mutation, changeNcbmData
+    # rows added by Luca have nan values for premium_main_coverages and premium_supplementary_coverages
+    df.loc[((df['premium_main_coverages'].isnull()) &
+           ((df['mutation_1'] == 'changeNcbmData') | (df['mutation_2'] == 'changeNcbmData') |
+            (df['mutation_3'] == 'changeNcbmData') | (df['mutation_4'] == 'changeNcbmData') |
+            (df['mutation_5'] == 'changeNcbmData') | (df['mutation_6'] == 'changeNcbmData') |
+            (df['mutation_7'] == 'changeNcbmData') | (df['mutation_8'] == 'changeNcbmData') |
+            (df['mutation_9'] == 'changeNcbmData') | (df['mutation_10'] == 'changeNcbmData') |
+            (df['mutation_11'] == 'changeNcbmData') |
+            (df['mutation_12'] == 'changeNcbmData'))), 'accident_free_years'] -= 5
+
+    # drop rows with churn in 2019 but 0 premium
+    df = df[~((df['total_premium'] == 0) & (df['d_churn'] == 1) & (df['year_initiation_policy_version'] == 2019))]
+    # I was not sure why only 2019
+
+    return df
+
+
+
+def convert_person_period(df, remove_columns):
+    
     df = df.copy()
-    df = df[~((df["years_since_policy_started"] == 0)&(df["d_churn"] == 0))]
-    df.loc[(df["years_since_policy_started"] == 0) & (df["d_churn"] == 1), "years_since_policy_started"] = 1
+    #df = remove_zero_year(df)
     
-    # get the yearly start year
-    df.loc[:, "end_year"] = df["years_since_policy_started"] + df["year_initiation_policy"]
-    df.loc[:, "star_year"] = df["end_year"] - 1
-
+    df_person_period = df.drop(remove_columns, axis = 1)
     
-    df_person_period = df.drop(['year_initiation_policy', 'year_initiation_policy_version', 'year_end_policy','d_churn_cancellation',
-       'd_churn_between_prolongations', 'd_churn_around_prolongation', 'premium_main_coverages', 'premium_supplementary_coverages', 'welcome_discount_control_group'
-       , 'postcode','premium_mutations','type','weight'], axis = 1)
-    
+    # prepare for generating dummies
     df_person_period['years_since_policy_started'] = df_person_period['years_since_policy_started'].astype('category')
+    df_person_period['cluster'] = df_person_period['cluster'].astype('category')
+    
     # Get dummies without specifying prefix
-    df_dummies = pd.get_dummies(df_person_period[['brand', 'fuel_type','years_since_policy_started']])
-
+    df_dummies = pd.get_dummies(df_person_period[['years_since_policy_started', 'cluster', 'fuel_type', 'sales_channel']])
+    
     # Concatenate the dummy variables with the original DataFrame
     df_person_period = pd.concat([df_person_period, df_dummies], axis=1)
 
-    # Drop the original categorical columns
-    df_person_period = df_person_period.drop(['brand', 'fuel_type','years_since_policy_started'], axis=1)
-
+    # Drop the original categorical columns for identification
+    df_person_period = df_person_period.drop(['years_since_policy_started' , 'cluster', 'fuel_type', 'sales_channel'], axis=1)
+  
+    # replace all boolin columns with dummies
     bool_columns = df_person_period.select_dtypes(include='bool').columns
     df_person_period[bool_columns] = df_person_period[bool_columns].astype(int)
 
     return df_person_period
+
+
+def survival_analysis_spe1(df, working_columns):
+
+
+    df_w_1 = df.copy()
+    wd_received = df_w_1['WD_received']
+    # Create new columns in the copy based on 'WD_receive_group'
+    for col in working_columns:
+        wd_col = 'WD_' + col
+        # Create modified column directly in df_w_1
+        df_w_1[wd_col] = df_w_1[col] * wd_received
+        df_w_1[col] = df_w_1[col] * (1 - wd_received)
+        
+    # No need to merge df_w_1_c since we directly modify df_w_1
+    
+    return df_w_1
