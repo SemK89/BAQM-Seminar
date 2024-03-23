@@ -1,10 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-Created on Fri Mar 22 10:34:08 2024
-
-@author: Hanneke
-"""
-
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
@@ -82,27 +76,27 @@ param_grid = {
     'max_features': ['sqrt', 'log2', None],
 }
 
-def c_index_scorer(estimator, X, y):
+def c_index_estimator(estimator, X, y):
     prediction = estimator.predict(X)
-    event_indicator = y['d_churn']
-    event_time = y['years_since_policy_started']
-    c_index, _, _, _, _ = concordance_index_censored(event_indicator, event_time, prediction)
+    event = y['d_churn']
+    time_to_event = y['years_since_policy_started']
+    c_index, _, _, _, _ = concordance_index_censored(event, time_to_event, prediction)
     return c_index
 
 rsf = RandomSurvivalForest(random_state=42)
 
-grid_search = GridSearchCV(estimator=rsf, param_grid=param_grid, scoring=c_index_scorer, n_jobs=-1, cv=5)
-grid_search.fit(X_train, y_train)
+gridSearch = GridSearchCV(estimator=rsf, param_grid=param_grid, scoring=c_index_estimator, n_jobs=-1, cv=5)
+gridSearch.fit(X_train, y_train)
 
-print("Best parameters:", grid_search.best_params_)
-print("Best C-index:", grid_search.best_score_)
+print("Best parameters:", gridSearch.best_params_)
+print("Best C-index:", gridSearch.best_score_)
 
 
 c_index_results = {}
 for n in range(1, 201):
     rsf = RandomSurvivalForest(n_estimators=n, random_state=42, n_jobs=-1)
     rsf.fit(X_train, y_train)
-    c_index = c_index_scorer(rsf, X_test, y_test)
+    c_index = c_index_estimator(rsf, X_test, y_test)
     c_index_results[n] = c_index
     print(f"n_estimators={n}, C-index: {c_index}")
     
@@ -129,9 +123,9 @@ print("Brier Score:", bs)
 
 # AUC:
 risk_scores = rsf.predict(X_test)
-auc_values2, mean_auc = cumulative_dynamic_auc(y_train, y_test, risk_scores, times)
+auc_values, mean_auc = cumulative_dynamic_auc(y_train, y_test, risk_scores, times)
 print(f"Mean AUC up to max time: {mean_auc}")
-print(f"AUC values: {auc_values2}")
+print(f"AUC values: {auc_values}")
 
 
 ## feature importance:
