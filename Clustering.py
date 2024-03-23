@@ -1,4 +1,4 @@
-# Clustering part finall
+# Clustering part final
 import pandas as pd
 import numpy as np
 import time
